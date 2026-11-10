@@ -5,6 +5,7 @@ C++과 MFC를 이용해 CSV 파일의 데이터를 표 형태로 표시하고, �
 
 `CListCtrl`의 OwnerData(가상 리스트) 방식과 `std::vector` 기반 데이터 관리를 학습하고, 파일 입출력·이벤트 처리·GUI 간의 연결을 구현하는 데 중점을 두었습니다.
 
+파일 내 MemberList.CSV 예제 파일을 다운로드하시기 바랍니다.
 
 
 ## 1. 개발 환경 (Development Environment)

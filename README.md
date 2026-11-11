@@ -1,139 +1,173 @@
 
 # MFC CSV List Control
 
-C++과 MFC를 이용해 CSV 파일의 데이터를 표 형태로 표시하고, 셀 단위로 수정한 뒤 다시 CSV 파일로 저장할 수 있도록 제작한 Windows 데스크톱 애플리케이션입니다.
+C++과 MFC(Microsoft Foundation Classes)를 사용해 만든 Windows용 CSV 데이터 조회·편집 프로그램입니다.
 
-`CListCtrl`의 OwnerData(가상 리스트) 방식과 `std::vector` 기반 데이터 관리를 학습하고, 파일 입출력·이벤트 처리·GUI 간의 연결을 구현하는 데 중점을 두었습니다.
+CSV 파일을 불러와 `CListCtrl`에 표 형태로 표시하고, 선택한 셀의 값을 수정하거나 글꼴을 변경한 뒤 CSV 파일로 저장할 수 있도록 구현했습니다. 처음에는 `Person` 클래스로 9개 열을 고정 관리했으나, 이후 CSV 파일의 **전체 열을 처리할 수 있는 2차원 벡터 구조**로 변경했습니다.
 
 
 
 ## 1. 개발 환경 (Development Environment)
 
-| 구분 | 사용 기술 |
+| 항목 | 내용 |
 | --- | --- |
-| 언어 | C++ |
-| 프레임워크 | MFC (Microsoft Foundation Classes) |
-| 개발 도구 | Microsoft Visual Studio |
-| 주요 클래스 | `CDialogEx`, `CListCtrl`, `CEdit`, `CStdioFile`, `CFileDialog`, `CFontDialog`, `CFont` |
-| 데이터 관리 | `Person`, `std::vector<Person>`, `CString` |
+| Language | C++ |
+| Framework | MFC (Microsoft Foundation Classes) |
+| IDE | Microsoft Visual Studio |
+| Platform | Windows |
+| 주요 클래스 | `CDialogEx`, `CListCtrl`, `CEdit`, `CFileDialog`, `CStdioFile`, `CFontDialog`, `CFont`, `CString` |
+| 데이터 구조 | `std::vector<CString>`, `std::vector<std::vector<CString>>` |
 
 
 
 ## 2. 주요 기능 (Features)
 
-- **CSV 열기(Open):** 파일 선택 창을 통해 CSV를 선택하고, 파일의 데이터를 읽어 표에 표시합니다.
-- **데이터 표시:** `CListCtrl`을 Report 형식으로 사용하고, `LVN_GETDISPINFO`에서 요청된 셀의 문자열을 제공합니다.
-- **셀 선택 및 수정(Edit):** 클릭한 셀의 행·열 위치를 파악해 편집창에 값을 표시하고, 수정값을 메모리의 데이터에 반영합니다.
-- **CSV 저장(Save):** 메모리에 저장된 데이터를 CSV 파일로 출력합니다.
-- **목록 초기화(Close):** 데이터와 리스트의 열을 초기화합니다.
-- **폰트 설정(Font):** 글꼴 선택 대화상자를 통해 리스트와 편집창의 폰트를 변경합니다.
+- **Open:** CSV 파일 선택 및 데이터 불러오기
+- **List Control:** CSV의 전체 열과 행을 Report 형식으로 표시
+- **Edit:** 선택한 셀의 값을 편집창에서 수정
+- **Save:** 데이터 및 열 제목을 CSV 형식으로 저장
+- **Close:** 현재 데이터와 리스트 초기화
+- **Font:** 글꼴 및 크기 변경
+- **OwnerData:** `LVN_GETDISPINFO`를 이용하여 요청받은 셀의 데이터 제공
+- **열 개수 검사:** 데이터 행의 필드 개수가 헤더와 다르면 오류 메시지 출력
 
-> 현재 소스의 CSV 파싱·저장 처리에는 수정이 필요한 부분이 있습니다. 일반적인 모든 CSV 형식을 완전하게 지원하는 구현은 아닙니다.
 
----
 
 ## 3. 주요 구현 내용 (Implementation)
 
-### 3.1 행 단위 데이터 모델
+### 3.1 CSV 데이터 읽기
 
-CSV의 한 행을 `Person` 클래스로 표현하고, 전체 데이터를 `std::vector<Person>`에 저장하도록 구성했습니다.
+`CFileDialog`로 파일을 선택하고, `CStdioFile::ReadString()`으로 텍스트를 순차적으로 읽습니다. `mRowString()`은 쉼표로 구분된 필드를 `std::vector<CString>`에 저장하며, 큰따옴표로 감싼 쉼표와 여러 줄에 걸친 필드도 고려하도록 구성했습니다.
 
-`Person::GetString(int)`은 필드 번호에 따라 문자열을 반환하며, 정수 필드는 `CString::Format()`으로 변환합니다.
+첫 번째 레코드는 열 제목으로 처리하고, 나머지 레코드는 데이터 행으로 저장합니다.
 
-### 3.2 OwnerData 방식의 리스트 표시
+### 3.2 고정 9열 구조에서 가변 열 구조로 개선
 
-리스트 컨트롤의 표시용 문자열을 개별 항목에 직접 저장하는 대신, `m_vecData`에서 조회하도록 구성했습니다.
+초기에는 `Person` 클래스에 9개의 필드를 선언하고 열 번호별로 각 멤버에 값을 대입했습니다. 이후 파일마다 열 개수가 달라질 수 있다는 점을 고려해 아래 구조로 변경했습니다.
+
+```cpp
+std::vector<CString> m_vecHeader{};
+std::vector<std::vector<CString>> m_vecData{};
+```
+
+- `m_vecHeader`는 CSV의 열 제목을 보관합니다.
+- `m_vecData`는 데이터 행을 보관하며 `m_vecData[행][열]` 형식으로 셀에 접근합니다.
+- 각 행은 `m_vecData.push_back(arr)`로 추가합니다.
+
+데이터 행의 열 개수가 헤더의 열 개수와 다르면 파일 읽기를 중단하고 오류를 표시하도록 했습니다.
+
+```cpp
+if (arr.size() != m_vecHeader.size())
+{
+    // 열 개수 불일치 오류 처리
+    // 파일 닫기 및 데이터 초기화 후 return
+}
+
+m_vecData.push_back(arr);
+```
+
+### 3.3 OwnerData 기반 리스트 표시
+
+`CListCtrl`에 `LVS_OWNERDATA` 스타일을 사용하고, `SetItemCount()`로 표시할 데이터 행 개수를 설정합니다. 각 셀의 문자는 리스트 컨트롤의 요청(`LVN_GETDISPINFO`)에 따라 `m_vecData`에서 찾아 전달합니다.
 
 ```cpp
 m_listCtrl.SetItemCount((int)m_vecData.size());
 ```
 
-리스트에서 `LVN_GETDISPINFO` 알림을 받으면 행·열 인덱스를 확인하고, `Person::GetString()`이 반환한 문자열을 컨트롤이 제공한 버퍼에 복사합니다.
-
-```cpp
-_tcsncpy_s(
-    pDisp->item.pszText,
-    pDisp->item.cchTextMax,
-    (LPCTSTR)m_vecData[x].GetString(y),
-    _TRUNCATE
-);
-```
-
-> OwnerData 방식으로 실행하려면 리스트 컨트롤에 `LVS_OWNERDATA` 스타일이 설정되어 있어야 합니다. 리소스 설정은 이 문서 작성에 제공된 코드만으로 확인되지 않았습니다.
-
-### 3.3 CSV 파일 읽기 및 데이터 변환
-
-`CFileDialog`에서 파일을 선택하고 `CStdioFile::ReadString()`으로 한 줄씩 읽습니다. 필드를 분리한 후 9개 항목을 `Person` 객체에 할당합니다.
-
-문자열 필드에는 `CString`, 숫자 필드에는 `_ttoi()`를 사용합니다.
+이 방식에서는 리스트 컨트롤에 모든 문자열을 직접 삽입하지 않고, 실제 데이터와 화면 표시를 분리할 수 있습니다.
 
 ### 3.4 선택 셀 편집
 
-`SubItemHitTest()`로 클릭한 셀의 행·열 인덱스를 구하고, 해당 셀의 값을 `CEdit`에 표시합니다.
+`SubItemHitTest()`로 클릭한 행·열 인덱스를 구하고 해당 값을 `CEdit`에 표시합니다. Edit 버튼을 누르면 편집창의 문자열을 선택한 셀에 반영하고 `Invalidate()`로 다시 그리기를 요청합니다.
 
-Edit 버튼을 누르면 열 번호에 따라 `Person`의 해당 필드를 변경한 후 `Invalidate()`로 표시 갱신을 요청합니다.
+```cpp
+m_vecData[m_nSelRow][m_nSelCol] = strNew;
+m_listCtrl.Invalidate();
+```
 
-### 3.5 폰트 변경
+### 3.5 CSV 저장
 
-`CFontDialog`로 글꼴을 선택하고, `CFont::CreatePointFont()`로 생성한 폰트를 `CListCtrl`과 `CEdit`에 적용합니다.
+헤더와 각 데이터 행을 순서대로 출력합니다. 쉼표 또는 큰따옴표 등이 포함된 필드는 CSV 형식에 맞게 감싸거나 이스케이프하도록 저장 로직을 구성했습니다.
+
+### 3.6 글꼴 변경
+
+`CFontDialog`로 글꼴과 크기를 선택하고 `CFont::CreatePointFont()`, `SetFont()`를 이용해 리스트와 편집창에 적용합니다.
 
 
 
 ## 4. 실행 화면 (Screenshots)
 
-프로그램의 실제 실행 화면을 추가할 예정입니다.
+> 아래 위치에 실제 프로그램 화면을 추가할 예정입니다.
 
-- CSV 파일을 불러온 화면
-- 셀을 선택하고 편집창에 값을 표시한 화면
-- 폰트 변경 화면
+### CSV 불러오기
 
+<!-- 예: ![CSV 데이터 조회](screenshots/open.png) -->
 
+### 셀 편집
 
-## 5. 개선 사항 및 알려진 제약 (Improvements & Limitations)
+<!-- 예: ![셀 편집](screenshots/edit.png) -->
 
-### 우선 수정할 항목
+### 글꼴 변경
 
-- CSV 저장 시 헤더 끝에 줄바꿈이 없어 첫 데이터 행이 이어 붙는 문제
-- 필드 개수를 `arr.size() > 9`로 검사해 정확히 9개인 데이터 행을 건너뛰는 문제
-- 파일을 닫은 후 선택한 행·열 인덱스가 남는 문제
-- CSV 헤더의 열 개수를 확인하지 않고 9개 열을 읽는 부분
-- 편집 시 행·열 인덱스의 유효성 검사가 충분하지 않은 부분
-
-### 향후 개선 방향
-
-- 쉼표·큰따옴표·줄바꿈이 포함된 필드를 올바르게 처리하는 CSV 파서 및 저장 로직
-- CSV 파일의 문자 인코딩 처리 개선
-- 잘못된 숫자 입력에 대한 유효성 검사 및 오류 안내
-- 데이터 모델과 UI 로직의 추가 분리
-- 파일 열기·저장 실패에 대한 오류 처리 보강
+<!-- 예: ![글꼴 변경](screenshots/font.png) -->
 
 
 
-## 6. 빌드 및 실행 (Build & Run)
+## 5. 예제 데이터 (Sample Data)
 
-1. Windows에서 MFC 개발 구성 요소가 설치된 Visual Studio를 준비합니다.
+테스트용 `MemberList.CSV`는 **24개 열, 20개 데이터 행**으로 구성되어 있습니다. 카드번호, 사용자 이름, 발급 횟수, 카드 종류, 출입 스케줄 등 여러 열을 가진 예제 데이터입니다.
+
+저장소에 예제 파일을 함께 올린다면 `samples/MemberList.CSV` 위치에 배치하여 사용할 수 있습니다.
+
+1. 프로그램 실행 후 **Open** 클릭
+2. `MemberList.CSV` 선택
+3. 데이터 조회 및 셀 선택
+4. **Edit**로 값 수정
+5. **Save**로 CSV 파일 저장
+
+> Excel 통합문서(`.xlsx`)를 직접 읽는 기능은 구현하지 않았으며, CSV 파일을 대상으로 합니다.
+
+
+
+## 6. 개발 과정 및 개선 사항 (Development & Improvements)
+
+### 6.1 데이터 구조 개선
+
+- **기존:** `Person` 클래스에 9개 열을 고정하고 `switch` 등으로 필드별 처리
+- **변경:** 헤더와 2차원 벡터로 전체 열을 관리하고 인덱스로 셀에 접근
+- **결과:** 열 개수가 다른 CSV에도 같은 조회·편집 구조를 적용할 수 있도록 개선
+
+### 6.2 CSV 파싱 오류 수정
+
+헤더의 `"유,무상/신분증"`처럼 **큰따옴표 내부에 쉼표가 포함된 필드**가 두 개의 열로 분리되는 문제를 확인했습니다.
+
+큰따옴표 상태를 관리하는 `bQuote` 값의 반전 처리 오류를 수정하여, 인용된 필드 내부의 쉼표를 구분자로 처리하지 않도록 했습니다.
+
+### 6.3 파일 스트림 오류 수정
+
+열 개수 불일치 시 오류 처리 코드에서 파일을 닫은 후 함수가 종료되지 않아 `ReadString()`이 다시 호출되는 문제가 있었습니다. 조건문과 `return`을 바로잡아 닫힌 파일을 다시 읽지 않도록 수정했습니다.
+
+### 6.4 향후 개선 사항
+
+- 다양한 CSV 문자 인코딩(UTF-8 등) 지원 및 검증
+- 잘못된 CSV 형식에 대한 상세 오류 안내
+- 데이터 검색 및 정렬 기능 추가
+- 입력값 검증 및 저장 후 재불러오기 테스트 확대
+- 대용량 데이터 처리 성능 검증
+
+
+
+## 7. 빌드 및 실행 (Build & Run)
+
+1. Windows에서 MFC 개발 구성 요소가 설치된 Microsoft Visual Studio를 실행합니다.
 2. 프로젝트의 솔루션 파일(`.sln`)을 엽니다.
 3. 프로젝트를 빌드하고 실행합니다.
-4. **Open** 버튼으로 9개 주요 필드를 포함하는 CSV 파일을 선택합니다.
-5. 셀 선택, 편집, 폰트 변경 및 저장 기능을 사용합니다.
-
-> 본 문서는 제공된 소스 코드를 바탕으로 작성했습니다. 실행·빌드 테스트와 CSV 파일의 다양한 형식에 대한 검증을 완료했다고 의미하지는 않습니다.
+4. **Open** 버튼으로 CSV 파일을 선택합니다.
 
 
 
-## 7. 예제 데이터 (Sample Data)
+## 8. 프로젝트 회고 (Retrospective)
 
-프로그램의 CSV 파일 읽기, 셀 편집 및 저장 기능을 테스트할 수 있도록 예제 데이터를 제공합니다.
+이번 프로젝트를 통해 MFC의 메시지 처리 방식, `CListCtrl`의 OwnerData 동작, CSV 파일 입출력 및 데이터 편집을 학습했습니다.
 
-### 예제 파일
-
-[MemberList.csv]
-
-### 사용 방법
-
-1. 프로그램을 실행합니다.
-2. `Open` 버튼을 클릭합니다.
-3. `samples/MemberList.csv` 파일을 선택합니다.
-4. 리스트 컨트롤에 표시된 데이터를 확인합니다.
-5. 특정 셀을 선택하고 `Edit` 버튼으로 수정합니다.
-6. `Save` 버튼을 이용해 수정된 데이터를 새 CSV 파일로 저장합니다.
+특히 9개 열로 고정된 구조를 가변 열 구조로 변경하면서 **자료구조 설계가 확장성과 유지보수성에 미치는 영향**을 체감했습니다. 또한 실제 실행 중 발생한 CSV 파싱 오류와 파일 스트림 문제를 분석하고 수정하는 경험을 쌓았습니다.

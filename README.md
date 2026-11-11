@@ -101,21 +101,24 @@ m_listCtrl.Invalidate();
 
 ### CSV 불러오기
 
-<!-- 예: ![CSV 데이터 조회](screenshots/open.png) -->
+<img width="1138" height="651" alt="image" src="https://github.com/user-attachments/assets/27c8ddf5-2080-4600-9dc6-1b09d842d229" />
+
 
 ### 셀 편집
 
-<!-- 예: ![셀 편집](screenshots/edit.png) -->
+<img width="1139" height="651" alt="image" src="https://github.com/user-attachments/assets/815dc460-0862-40bc-9a06-639ae8ef3067" />
+
 
 ### 글꼴 변경
 
-<!-- 예: ![글꼴 변경](screenshots/font.png) -->
+<img width="1137" height="651" alt="image" src="https://github.com/user-attachments/assets/bf692099-75bb-460e-b3f6-8805d27ae3b3" />
+
 
 
 
 ## 5. 예제 데이터 (Sample Data)
 
-테스트용 `MemberList.CSV`는 **24개 열, 20개 데이터 행**으로 구성되어 있습니다. 카드번호, 사용자 이름, 발급 횟수, 카드 종류, 출입 스케줄 등 여러 열을 가진 예제 데이터입니다.
+테스트용 `MemberList.CSV`는 **24개 열**로 구성되어 있습니다. 카드번호, 사용자 이름, 발급 횟수, 카드 종류, 출입 스케줄 등 여러 열을 가진 예제 데이터입니다.
 
 저장소에 예제 파일을 함께 올린다면 `samples/MemberList.CSV` 위치에 배치하여 사용할 수 있습니다.
 

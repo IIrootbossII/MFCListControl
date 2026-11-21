@@ -97,8 +97,6 @@ m_listCtrl.Invalidate();
 
 ## 4. 실행 화면 (Screenshots)
 
-> 아래 위치에 실제 프로그램 화면을 추가할 예정입니다.
-
 ### CSV 불러오기
 
 <img width="1138" height="651" alt="image" src="https://github.com/user-attachments/assets/27c8ddf5-2080-4600-9dc6-1b09d842d229" />
